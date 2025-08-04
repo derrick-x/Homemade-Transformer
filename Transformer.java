@@ -1,4 +1,4 @@
-import java.util.Arrays;
+import java.util.*;
 
 public class Transformer {
     static double[][] embed = {{1, 2}, {3, 4}};
@@ -11,11 +11,12 @@ public class Transformer {
     static double[][] unembed = {{4, 3}, {2, 1}};
     static final int VOCAB_COUNT = 9974;
     static final int LAYERS = 2;
-    static final int DIM_EMBED = 4;
-    static final int DIM_ATTENTION = 3;
-    static final int DIM_MLP = 5;
-    static final int CONTEXT_LEN = 6;
+    static final int DIM_EMBED = 6;
+    static final int DIM_ATTENTION = 4;
+    static final int DIM_MLP = 8;
+    static final int CONTEXT_LEN = 10;
     static final double LEARN_RATE = 0.00002;
+    static final double MAX_GRADIENT = 0.001;
     static class ParamLog {
         double[][][] embedVectors;
         double[][][] queries;
@@ -39,17 +40,18 @@ public class Transformer {
     static ParamLog params;
 
     public static void init() {
+        Random normal = new Random();
         embed = new double[VOCAB_COUNT][DIM_EMBED]; //embed dimensions
         for (int i = 0; i < VOCAB_COUNT; i++) {
             for (int j = 0; j < DIM_EMBED; j++) {
-                embed[i][j] = Math.random() * 0.2 - 0.1;
+                embed[i][j] = normal.nextGaussian() * Math.sqrt(2.0 / DIM_EMBED);
             }
         }
         queryMatrix = new double[LAYERS][DIM_EMBED][DIM_ATTENTION]; //query matrix dimensionw
         for (int i = 0; i < LAYERS; i++) {
             for (int j = 0; j < DIM_EMBED; j++) {
                 for (int k = 0; k < DIM_ATTENTION; k++) {
-                    queryMatrix[i][j][k] = Math.random() * 0.2 - 0.1;
+                    queryMatrix[i][j][k] = normal.nextGaussian() * Math.sqrt(2.0 / DIM_EMBED);
                 }
             }
         }
@@ -57,7 +59,7 @@ public class Transformer {
         for (int i = 0; i < LAYERS; i++) {
             for (int j = 0; j < DIM_EMBED; j++) {
                 for (int k = 0; k < DIM_ATTENTION; k++) {
-                    keyMatrix[i][j][k] = Math.random() * 0.2 - 0.1;
+                    keyMatrix[i][j][k] = normal.nextGaussian() * Math.sqrt(2.0 / DIM_EMBED);
                 }
             }
         }
@@ -65,7 +67,7 @@ public class Transformer {
         for (int i = 0; i < LAYERS; i++) {
             for (int j = 0; j < DIM_EMBED; j++) {
                 for (int k = 0; k < DIM_EMBED; k++) {
-                    valueMatrix[i][j][k] = Math.random() * 0.2 - 0.1;
+                    valueMatrix[i][j][k] = normal.nextGaussian() * Math.sqrt(2.0 / DIM_EMBED);
                 }
             }
         }
@@ -73,28 +75,28 @@ public class Transformer {
         for (int i = 0; i < LAYERS; i++) {
             for (int j = 0; j < DIM_EMBED; j++) {
                 for (int k = 0; k < DIM_MLP; k++) {
-                    upMatrix[i][j][k] = Math.random() * 0.2 - 0.1;
+                    upMatrix[i][j][k] = normal.nextGaussian() * Math.sqrt(2.0 / DIM_EMBED);
                 }
             }
         }
         bias = new double[LAYERS][DIM_MLP]; //bias dimensions
         for (int i = 0; i < LAYERS; i++) {
             for (int j = 0; j < DIM_MLP; j++) {
-                bias[i][j] = Math.random() * 0.2 - 0.1;
+                bias[i][j] = 0;
             }
         }
         downMatrix = new double[LAYERS][DIM_MLP][DIM_EMBED]; //down matrix dimensions
         for (int i = 0; i < LAYERS; i++) {
             for (int j = 0; j < DIM_MLP; j++) {
                 for (int k = 0; k < DIM_EMBED; k++) {
-                    downMatrix[i][j][k] = Math.random() * 0.4 - 0.2;
+                    downMatrix[i][j][k] = normal.nextGaussian() * Math.sqrt(2.0 / DIM_MLP);
                 }
             }
         }
         unembed = new double[DIM_EMBED][VOCAB_COUNT]; //unembed dimensions
         for (int i = 0; i < DIM_EMBED; i++) {
             for (int j = 0; j < VOCAB_COUNT; j++) {
-                unembed[i][j] = Math.random() * 0.4 - 0.2;
+                unembed[i][j] = normal.nextGaussian() * Math.sqrt(2.0 / DIM_EMBED);
             }
         }
     }
@@ -105,7 +107,7 @@ public class Transformer {
         double[][] embedVectors = new double[CONTEXT_LEN][DIM_EMBED];
         for (int i = 0; i < CONTEXT_LEN; i++) {
             for (int j = 0; j < DIM_EMBED; j++) {
-                embedVectors[i][j] = (context[i] < 0 ? 0 : embed[context[i]][j]) + ((j % 2 == 0) ? Math.sin(i / Math.pow(DIM_EMBED,  i / (double) DIM_EMBED)) : Math.cos(i / Math.pow(DIM_EMBED,  i / (double) DIM_EMBED)));
+                embedVectors[i][j] = (context[i] < 0 ? 0 : embed[context[i]][j]) + ((j % 2 == 0) ? Math.sin(i / Math.pow(10000, 2.0 * (j / 2) / (double) DIM_EMBED)) : Math.cos(i / Math.pow(10000, 2.0 * (j / 2) / (double) DIM_EMBED)));
             }
         }
         for (int l = 0; l < LAYERS; l++) {
@@ -118,10 +120,10 @@ public class Transformer {
             double[][] dots = matMul(transpose(keys), queries);
             double[][] scaledDots = new double[CONTEXT_LEN][CONTEXT_LEN];
             for (int i = 0; i < CONTEXT_LEN; i++) {
-                scaledDots[i] = softmax(dots[i], 1);
                 for (int j = 0; j < CONTEXT_LEN; j++) {
                     scaledDots[i][j] /= Math.sqrt(DIM_ATTENTION);
                 }
+                scaledDots[i] = softmax(dots[i], 1);
             }
             arraycopy2D(scaledDots, params.scaledDots[l]);
             double[][] values = matMul(valueMatrix[l], embedVectors);
@@ -154,7 +156,7 @@ public class Transformer {
     }
 
     public static void learn(int[][] testData) {
-        for (int t = 0; t < 250000; t++) {
+        for (int t = 0; t < 50000; t++) {
             double[][] _embed = new double[VOCAB_COUNT][DIM_EMBED];
             double[][][] _queryMatrix = new double[LAYERS][DIM_EMBED][DIM_ATTENTION];
             double[][][] _keyMatrix = new double[LAYERS][DIM_EMBED][DIM_ATTENTION];
@@ -164,16 +166,21 @@ public class Transformer {
             double[][][] _downMatrix = new double[LAYERS][DIM_MLP][DIM_EMBED];
             double[][] _unembed = new double[DIM_EMBED][VOCAB_COUNT];
             double cost = 0;
+            double gradient = 0;
             for (int[] testCase : testData) {
                 int[] context = new int[CONTEXT_LEN];
                 Arrays.fill(context, -1);
-                for (int p = 1; p < testCase.length; p++) {
+                for (int p = 0; p < testCase.length; p++) {
                     for (int j = 1; j < CONTEXT_LEN; j++) {
                         context[j - 1] = context[j];
                     }
-                    context[CONTEXT_LEN - 1] = testCase[p - 1];
+                    context[CONTEXT_LEN - 1] = p > 0 ? testCase[p - 1] : -1;
                     double[] probability = predict(context, 1.0);
                     cost -= Math.log(probability[testCase[p]]);
+                    if (Double.isNaN(cost)) {
+                        System.out.println("NaN");
+                        System.exit(0);
+                    }
                     double[][] _embedVectors = new double[CONTEXT_LEN][DIM_EMBED];
                     //Unembed gradient
                     double[] _output = new double[VOCAB_COUNT];
@@ -344,60 +351,113 @@ public class Transformer {
                     }
                 }
             }
+            //Gradient clipping
             for (int i = 0; i < VOCAB_COUNT; i++) {
                 for (int j = 0; j < DIM_EMBED; j++) {
-                    embed[i][j] -= _embed[i][j] * LEARN_RATE;
+                    gradient += Math.pow(_embed[i][j] * LEARN_RATE, 2);
                 }
             }
             for (int i = 0; i < LAYERS; i++) {
                 for (int j = 0; j < DIM_EMBED; j++) {
                     for (int k = 0; k < DIM_ATTENTION; k++) {
-                        queryMatrix[i][j][k] -= _queryMatrix[i][j][k] * LEARN_RATE;
+                        gradient += Math.pow(_queryMatrix[i][j][k] * LEARN_RATE, 2);
                     }
                 }
             }
             for (int i = 0; i < LAYERS; i++) {
                 for (int j = 0; j < DIM_EMBED; j++) {
                     for (int k = 0; k < DIM_ATTENTION; k++) {
-                        keyMatrix[i][j][k] -= _keyMatrix[i][j][k] * LEARN_RATE;
+                        gradient += Math.pow(_keyMatrix[i][j][k] * LEARN_RATE, 2);
                     }
                 }
             }
             for (int i = 0; i < LAYERS; i++) {
                 for (int j = 0; j < DIM_EMBED; j++) {
                     for (int k = 0; k < DIM_EMBED; k++) {
-                        valueMatrix[i][j][k] -= _valueMatrix[i][j][k] * LEARN_RATE;
+                        gradient += Math.pow(_valueMatrix[i][j][k] * LEARN_RATE, 2);
                     }
                 }
             }
             for (int i = 0; i < LAYERS; i++) {
                 for (int j = 0; j < DIM_EMBED; j++) {
                     for (int k = 0; k < DIM_MLP; k++) {
-                        upMatrix[i][j][k] -= _upMatrix[i][j][k] * LEARN_RATE;
+                        gradient += Math.pow(_upMatrix[i][j][k] * LEARN_RATE, 2);
                     }
                 }
             }
             for (int i = 0; i < LAYERS; i++) {
                 for (int j = 0; j < DIM_MLP; j++) {
-                    bias[i][j] -= _bias[i][j] * LEARN_RATE;
+                    gradient += Math.pow(_bias[i][j] * LEARN_RATE, 2);
                 }
             }
             for (int i = 0; i < LAYERS; i++) {
                 for (int j = 0; j < DIM_MLP; j++) {
                     for (int k = 0; k < DIM_EMBED; k++) {
-                        downMatrix[i][j][k] -= _downMatrix[i][j][k] * LEARN_RATE;
+                        gradient += Math.pow(_downMatrix[i][j][k] * LEARN_RATE, 2);
                     }
                 }
             }
             for (int i = 0; i < DIM_EMBED; i++) {
                 for (int j = 0; j < VOCAB_COUNT; j++) {
-                    unembed[i][j] -= _unembed[i][j] * LEARN_RATE;
+                    gradient += Math.pow(_unembed[i][j] * LEARN_RATE, 2);
+                }
+            }
+            double scale = Math.min(MAX_GRADIENT / Math.sqrt(gradient), 1);
+            //Update parameters based on gradients
+            //System.out.println(Math.sqrt(gradient));
+            for (int i = 0; i < VOCAB_COUNT; i++) {
+                for (int j = 0; j < DIM_EMBED; j++) {
+                    embed[i][j] -= (scale * _embed[i][j]) * LEARN_RATE;
+                }
+            }
+            for (int i = 0; i < LAYERS; i++) {
+                for (int j = 0; j < DIM_EMBED; j++) {
+                    for (int k = 0; k < DIM_ATTENTION; k++) {
+                        queryMatrix[i][j][k] -= (scale * _queryMatrix[i][j][k]) * LEARN_RATE;
+                    }
+                }
+            }
+            for (int i = 0; i < LAYERS; i++) {
+                for (int j = 0; j < DIM_EMBED; j++) {
+                    for (int k = 0; k < DIM_ATTENTION; k++) {
+                        keyMatrix[i][j][k] -= (scale * _keyMatrix[i][j][k]) * LEARN_RATE;
+                    }
+                }
+            }
+            for (int i = 0; i < LAYERS; i++) {
+                for (int j = 0; j < DIM_EMBED; j++) {
+                    for (int k = 0; k < DIM_EMBED; k++) {
+                        valueMatrix[i][j][k] -= (scale * _valueMatrix[i][j][k]) * LEARN_RATE;
+                    }
+                }
+            }
+            for (int i = 0; i < LAYERS; i++) {
+                for (int j = 0; j < DIM_EMBED; j++) {
+                    for (int k = 0; k < DIM_MLP; k++) {
+                        upMatrix[i][j][k] -= (scale * _upMatrix[i][j][k]) * LEARN_RATE;
+                    }
+                }
+            }
+            for (int i = 0; i < LAYERS; i++) {
+                for (int j = 0; j < DIM_MLP; j++) {
+                    bias[i][j] -= (scale * _bias[i][j]) * LEARN_RATE;
+                }
+            }
+            for (int i = 0; i < LAYERS; i++) {
+                for (int j = 0; j < DIM_MLP; j++) {
+                    for (int k = 0; k < DIM_EMBED; k++) {
+                        downMatrix[i][j][k] -= (scale * _downMatrix[i][j][k]) * LEARN_RATE;
+                    }
+                }
+            }
+            for (int i = 0; i < DIM_EMBED; i++) {
+                for (int j = 0; j < VOCAB_COUNT; j++) {
+                    unembed[i][j] -= (scale * _unembed[i][j]) * LEARN_RATE;
                 }
             }
             System.out.println(t + ": " + cost);
-            if (Double.isNaN(cost)) {
-                System.out.println(t);
-                System.exit(0);
+            if (cost < 0.1) {
+                return;
             }
         }
     }
@@ -425,13 +485,17 @@ public class Transformer {
     }
 
     public static double[] softmax(double[] input, double temp) {
+        double max = Arrays.stream(input).max().getAsDouble();
+        for (int i = 0; i < input.length; i++) {
+            input[i] -= max;
+        }
         double sum = 0;
         for (double value : input) {
             sum += Math.pow(Math.E / temp, value);
         }
         double[] softmaxed = new double[input.length];
         for (int i = 0; i < input.length; i++) {
-            softmaxed[i] = Math.pow(Math.E, input[i] / temp) / sum;
+            softmaxed[i] = Math.pow(Math.E / temp, input[i]) / sum;
         }
         return softmaxed;
     }
@@ -447,16 +511,29 @@ public class Transformer {
     }
 
     public static double leakyReLu(double input) {
-        return input > 0 ? input : input * 0.01;
+        return input > 0 ? input : input * 0.001;
     }
 
     public static double _leakyReLu(double input) {
-        return input > 0 ? 1 : 0.01;
+        return input > 0 ? 1 : 0.001;
     }
 
     public static void arraycopy2D(double[][] src, double[][] dest) {
         for (int i = 0; i < src.length; i++) {
             System.arraycopy(src[i], 0, dest[i], 0, src[i].length);
         }
+    }
+
+    public static double[] meanAndVariance(double[] vector) {
+        double[] stats = {0.0, 0.0};
+        for (double x : vector) {
+            stats[0] += x;
+        }
+        stats[0] /= vector.length;
+        for (double x : vector) {
+            stats[1] += (x - stats[0]) * (x - stats[0]);
+        }
+        stats[1] /= vector.length;
+        return stats;
     }
 }
