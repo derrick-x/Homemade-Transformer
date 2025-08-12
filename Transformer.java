@@ -1,14 +1,14 @@
 import java.util.*;
 
 public class Transformer {
-    static double[][] embed = {{1, 2}, {3, 4}};
-    static double[][][] queryMatrix = {{{0.5, 1}, {-0.5, 1}}};
-    static double[][][] keyMatrix = {{{1, 0.5}, {1, -0.5}}};
-    static double[][][] valueMatrix = {{{1, 1}, {-0.5, 0.5}}};
-    static double[][][] upMatrix = {{{-0.5, 1}, {0.5, 1}}};
-    static double[][] bias = {{0, 0}};
-    static double[][][] downMatrix = {{{0.5, -0.5}, {1, 1}}};
-    static double[][] unembed = {{4, 3}, {2, 1}};
+    static double[][] embed;
+    static double[][][] queryMatrix;
+    static double[][][] keyMatrix;
+    static double[][][] valueMatrix;
+    static double[][][] upMatrix;
+    static double[][] bias;
+    static double[][][] downMatrix;
+    static double[][] unembed;
     static final int VOCAB_COUNT = 9974;
     static final int LAYERS = 2;
     static final int DIM_EMBED = 6;
@@ -47,7 +47,7 @@ public class Transformer {
                 embed[i][j] = normal.nextGaussian() * Math.sqrt(2.0 / DIM_EMBED);
             }
         }
-        queryMatrix = new double[LAYERS][DIM_EMBED][DIM_ATTENTION]; //query matrix dimensionw
+        queryMatrix = new double[LAYERS][DIM_EMBED][DIM_ATTENTION]; //query matrix dimensions
         for (int i = 0; i < LAYERS; i++) {
             for (int j = 0; j < DIM_EMBED; j++) {
                 for (int k = 0; k < DIM_ATTENTION; k++) {
@@ -63,7 +63,7 @@ public class Transformer {
                 }
             }
         }
-        valueMatrix = new double[LAYERS][DIM_EMBED][DIM_EMBED]; //value matrix 1 dimensions
+        valueMatrix = new double[LAYERS][DIM_EMBED][DIM_EMBED]; //value matrix dimensions
         for (int i = 0; i < LAYERS; i++) {
             for (int j = 0; j < DIM_EMBED; j++) {
                 for (int k = 0; k < DIM_EMBED; k++) {
